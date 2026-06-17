@@ -135,14 +135,7 @@ const MouseTrail = () => {
 
       // -- 2. DRAW PREMIUM CUSTOM CURSOR --
       
-      // A. The delayed outer ring
-      ctx.beginPath();
-      ctx.arc(ring.x, ring.y, 22, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(${accentColor.r}, ${accentColor.g}, ${accentColor.b}, 0.5)`;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      
-      // B. The exact mouse dot
+      // The exact mouse dot
       ctx.beginPath();
       ctx.arc(mouse.x, mouse.y, 4, 0, Math.PI * 2);
       ctx.fillStyle = `rgb(${accentColor.r}, ${accentColor.g}, ${accentColor.b})`;
