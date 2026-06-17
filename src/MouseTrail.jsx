@@ -10,147 +10,143 @@ const MouseTrail = () => {
     
     let animationFrameId;
     
-    // Physics Configuration matching the exact "revolt.digital" tubes
-    const numTubes = 5;      // Number of intertwining 3D tubes
-    const numPoints = 80;    // Length of the tubes
-    const spring = 0.02;     // Smooth spring physics
-    const friction = 0.90;   // Butter-smooth gliding
+    // Physics variables for the premium cursor
+    let mouse = { x: -1000, y: -1000 }; // Start offscreen
+    let ring = { x: -1000, y: -1000 };
     
-    let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-    let pos = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-    let velocity = { x: 0, y: 0 };
+    // Grid configuration for the interactive agency background
+    const spacing = 45; // Space between dots
+    let dots = [];
     
-    const tubes = [];
-    for (let i = 0; i < numTubes; i++) {
-        const points = [];
-        for (let j = 0; j < numPoints; j++) {
-            points.push({ x: mouse.x, y: mouse.y, vx: 0, vy: 0 });
+    const initGrid = () => {
+      dots = [];
+      const cols = Math.ceil(canvas.width / spacing) + 2;
+      const rows = Math.ceil(canvas.height / spacing) + 2;
+      
+      for (let i = 0; i < cols; i++) {
+        for (let j = 0; j < rows; j++) {
+          dots.push({
+            originX: i * spacing,
+            originY: j * spacing,
+            x: i * spacing,
+            y: j * spacing,
+            size: 1.5,
+          });
         }
-        tubes.push(points);
-    }
+      }
+    };
     
     const resizeCanvas = () => {
       if (canvas.parentElement) {
         canvas.width = canvas.parentElement.clientWidth;
         canvas.height = canvas.parentElement.clientHeight;
+        initGrid();
       }
     };
     
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    let lastMouse = { x: mouse.x, y: mouse.y };
     const handleMouseMove = (e) => {
       const rect = canvas.getBoundingClientRect();
       mouse.x = e.clientX - rect.left;
       mouse.y = e.clientY - rect.top;
-      
-      velocity.x = mouse.x - lastMouse.x;
-      velocity.y = mouse.y - lastMouse.y;
-      lastMouse.x = mouse.x;
-      lastMouse.y = mouse.y;
     };
     
     window.addEventListener('mousemove', handleMouseMove);
 
-    // Primary Neon Greenish Color
-    const baseColor = { r: 196, g: 240, b: 0 }; 
+    // Hide default cursor in the hero section to use our custom premium cursor
+    if (canvas.parentElement) {
+      canvas.parentElement.style.cursor = 'none';
+    }
 
-    const render = (time) => {
+    // Brand Colors
+    const accentColor = { r: 196, g: 240, b: 0 }; // #c4f000 Neon Greenish
+    
+    // Check theme for resting dots
+    const getRestingAlpha = () => {
+      return document.body.classList.contains('light-mode') 
+        ? 'rgba(0, 0, 0, 0.06)' 
+        : 'rgba(255, 255, 255, 0.06)';
+    };
+
+    const render = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      // Smooth mouse interpolation
-      pos.x += (mouse.x - pos.x) * 0.12;
-      pos.y += (mouse.y - pos.y) * 0.12;
+      // Update delayed cursor ring (buttery smooth spring)
+      ring.x += (mouse.x - ring.x) * 0.15;
+      ring.y += (mouse.y - ring.y) * 0.15;
       
-      // Decay velocity
-      velocity.x *= 0.95;
-      velocity.y *= 0.95;
-      const speed = Math.sqrt(velocity.x ** 2 + velocity.y ** 2);
-      const spread = Math.min(speed * 0.4, 40) + 10;
+      const restingColor = getRestingAlpha();
       
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      
-      // Screen blending to make the overlapping tubes glow brightly like WebGL
-      ctx.globalCompositeOperation = 'screen';
-
-      tubes.forEach((points, tubeIndex) => {
+      // -- 1. DRAW INTERACTIVE MAGNETIC GRID --
+      dots.forEach(dot => {
+        const dx = mouse.x - dot.originX;
+        const dy = mouse.y - dot.originY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        // Spotlight interaction radius
+        const maxDist = 250;
+        
+        if (dist < maxDist) {
+          // Interactive state: Mouse is near the dot
+          const pull = Math.pow((maxDist - dist) / maxDist, 1.5); // Exponential falloff for smooth lighting
           
-          const timeOffset = time * 0.0015 + tubeIndex * (Math.PI * 2 / numTubes);
+          // Magnetic pull: Dots are gently pulled towards the mouse
+          const targetX = dot.originX + dx * 0.2 * pull;
+          const targetY = dot.originY + dy * 0.2 * pull;
           
-          // Tube head orbits around the mouse based on speed, creating a 3D ribbon twist
-          points[0].x = pos.x + Math.cos(timeOffset) * spread;
-          points[0].y = pos.y + Math.sin(timeOffset) * spread;
+          dot.x += (targetX - dot.x) * 0.1;
+          dot.y += (targetY - dot.y) * 0.1;
           
-          // Physics calculation for butter-smooth tail
-          for (let i = 1; i < numPoints; i++) {
-              const p = points[i];
-              const prev = points[i - 1];
-              
-              const dx = prev.x - p.x;
-              const dy = prev.y - p.y;
-              
-              p.vx += dx * spring;
-              p.vy += dy * spring;
-              
-              p.vx *= friction;
-              p.vy *= friction;
-              
-              p.x += p.vx;
-              p.y += p.vy;
+          // Size scales up smoothly
+          const currentSize = dot.size + pull * 3;
+          
+          ctx.beginPath();
+          ctx.arc(dot.x, dot.y, currentSize, 0, Math.PI * 2);
+          
+          // Light up with brand color
+          ctx.fillStyle = `rgba(${accentColor.r}, ${accentColor.g}, ${accentColor.b}, ${0.1 + pull * 0.9})`;
+          
+          // Add neon glow to the brightest dots
+          if (pull > 0.4) {
+            ctx.shadowColor = `rgba(${accentColor.r}, ${accentColor.g}, ${accentColor.b}, ${pull})`;
+            ctx.shadowBlur = 15 * pull;
+          } else {
+            ctx.shadowBlur = 0;
           }
           
-          // Render each tube segment with 4 passes to create the illusion of 3D Glass/Neon
-          for (let i = 1; i < numPoints - 1; i++) {
-              const p0 = points[i - 1];
-              const p1 = points[i];
-              const p2 = points[i + 1];
-              
-              const progress = i / numPoints;
-              const reverseProgress = 1 - progress; // 1 at head, 0 at tail
-              
-              const scale = Math.pow(reverseProgress, 1.2);
-              if (scale < 0.02) continue;
-              
-              const xc1 = (p0.x + p1.x) / 2;
-              const yc1 = (p0.y + p1.y) / 2;
-              const xc2 = (p1.x + p2.x) / 2;
-              const yc2 = (p1.y + p2.y) / 2;
-              
-              // Helper to draw a spline segment
-              const drawSpline = (offsetX, offsetY) => {
-                  ctx.beginPath();
-                  ctx.moveTo(xc1 + offsetX, yc1 + offsetY);
-                  ctx.quadraticCurveTo(p1.x + offsetX, p1.y + offsetY, xc2 + offsetX, yc2 + offsetY);
-              };
-
-              // Pass 1: Fat Outer Glow
-              drawSpline(0, 0);
-              ctx.lineWidth = 45 * scale;
-              ctx.strokeStyle = `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${0.03 * scale})`;
-              ctx.stroke();
-              
-              // Pass 2: Main Tube Body
-              drawSpline(0, 0);
-              ctx.lineWidth = 18 * scale;
-              ctx.strokeStyle = `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${0.15 * scale})`;
-              ctx.stroke();
-              
-              // Pass 3: Specular Highlight (Offset to create 3D cylinder illusion)
-              const offset = -3 * scale; 
-              drawSpline(offset, offset);
-              ctx.lineWidth = 4 * scale;
-              ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 * scale})`;
-              ctx.stroke();
-              
-              // Pass 4: Bright Inner Core
-              drawSpline(0, 0);
-              ctx.lineWidth = 2 * scale;
-              ctx.strokeStyle = `rgba(255, 255, 255, ${0.8 * scale})`;
-              ctx.stroke();
-          }
+          ctx.fill();
+          
+        } else {
+          // Rest state: Mouse is far away
+          dot.x += (dot.originX - dot.x) * 0.1;
+          dot.y += (dot.originY - dot.y) * 0.1;
+          
+          ctx.beginPath();
+          ctx.arc(dot.x, dot.y, dot.size, 0, Math.PI * 2);
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = restingColor;
+          ctx.fill();
+        }
       });
+      
+      ctx.shadowBlur = 0; // Reset shadow for cursor
+
+      // -- 2. DRAW PREMIUM CUSTOM CURSOR --
+      
+      // A. The delayed outer ring
+      ctx.beginPath();
+      ctx.arc(ring.x, ring.y, 22, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(${accentColor.r}, ${accentColor.g}, ${accentColor.b}, 0.5)`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      
+      // B. The exact mouse dot
+      ctx.beginPath();
+      ctx.arc(mouse.x, mouse.y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = `rgb(${accentColor.r}, ${accentColor.g}, ${accentColor.b})`;
+      ctx.fill();
 
       animationFrameId = requestAnimationFrame(render);
     };
@@ -160,6 +156,9 @@ const MouseTrail = () => {
     return () => {
       window.removeEventListener('resize', resizeCanvas);
       window.removeEventListener('mousemove', handleMouseMove);
+      if (canvas.parentElement) {
+        canvas.parentElement.style.cursor = 'auto'; // Restore cursor
+      }
       cancelAnimationFrame(animationFrameId);
     };
   }, []);
@@ -174,9 +173,7 @@ const MouseTrail = () => {
         width: '100%',
         height: '100%',
         pointerEvents: 'none',
-        zIndex: 1,
-        filter: 'blur(1px)', // Softens the lines to look like glowing WebGL shaders
-        mixBlendMode: 'screen'
+        zIndex: 0 // Place behind hero text
       }}
     />
   );
