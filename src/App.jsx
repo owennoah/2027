@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import './App.css';
 import profileImg from './assets/profile.png';
 import logoImg from './assets/logo.png';
+import MouseTrail from './MouseTrail';
 
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -245,6 +246,7 @@ function App() {
 
       {/* Hero Section with Parallax Effect */}
       <div className="hero-container">
+        <MouseTrail />
         {/* Sidebar Text */}
         <div className="sidebar" ref={sidebarRef}>
           <span className="sidebar-text uppercase tracking">Product designer</span>

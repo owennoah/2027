@@ -752,4 +752,67 @@ svg {
   .services-headline h2 {
     font-size: 2rem;
   }
+  
+  /* Header mobile responsive */
+  .header-bar {
+    padding: 0 1.5rem;
+  }
+  .logo-wrapper {
+    width: auto;
+    margin-top: 15px;
+  }
+  .logo-content {
+    padding-left: 0;
+  }
+  .logo-image {
+    height: 26px;
+  }
+  .theme-toggle-wrapper {
+    width: auto;
+    margin-top: 15px;
+    z-index: 90;
+  }
+  .theme-bg, .theme-hitbox {
+    width: 38px;
+    height: 38px;
+  }
+  .theme-hitbox svg {
+    width: 18px;
+    height: 18px;
+  }
+  .open .main-bg, .open .main-content-hitbox {
+    width: 300px;
+  }
+  .nav-links {
+    gap: 1.25rem;
+  }
+  .nav-links a {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-bar {
+    padding: 0 1rem;
+  }
+  .logo-image {
+    height: 22px;
+  }
+  .theme-bg, .theme-hitbox {
+    width: 34px;
+    height: 34px;
+  }
+  .theme-hitbox svg {
+    width: 16px;
+    height: 16px;
+  }
+  .open .main-bg, .open .main-content-hitbox {
+    width: 260px;
+  }
+  .nav-links {
+    gap: 1rem;
+  }
+  .nav-links a {
+    font-size: 0.75rem;
+  }
 }
