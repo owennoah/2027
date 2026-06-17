@@ -10,20 +10,24 @@ const MouseTrail = () => {
     
     let animationFrameId;
     
+    // Physics Configuration matching the exact "revolt.digital" tubes
+    const numTubes = 5;      // Number of intertwining 3D tubes
+    const numPoints = 80;    // Length of the tubes
+    const spring = 0.02;     // Smooth spring physics
+    const friction = 0.90;   // Butter-smooth gliding
+    
     let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    let pos = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    let velocity = { x: 0, y: 0 };
     
-    // Physics for the elegant, minimal tail
-    const numPoints = 40; 
-    const spring = 0.15;
-    const friction = 0.75;
-    
-    const points = [];
-    for (let i = 0; i < numPoints; i++) {
-        points.push({ x: mouse.x, y: mouse.y, vx: 0, vy: 0 });
+    const tubes = [];
+    for (let i = 0; i < numTubes; i++) {
+        const points = [];
+        for (let j = 0; j < numPoints; j++) {
+            points.push({ x: mouse.x, y: mouse.y, vx: 0, vy: 0 });
+        }
+        tubes.push(points);
     }
-    
-    const text = "OMER • DIGITAL • AGENCY • ";
-    const radius = 45; // Radius of the spinning text badge
     
     const resizeCanvas = () => {
       if (canvas.parentElement) {
@@ -35,104 +39,118 @@ const MouseTrail = () => {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
+    let lastMouse = { x: mouse.x, y: mouse.y };
     const handleMouseMove = (e) => {
       const rect = canvas.getBoundingClientRect();
       mouse.x = e.clientX - rect.left;
       mouse.y = e.clientY - rect.top;
+      
+      velocity.x = mouse.x - lastMouse.x;
+      velocity.y = mouse.y - lastMouse.y;
+      lastMouse.x = mouse.x;
+      lastMouse.y = mouse.y;
     };
     
     window.addEventListener('mousemove', handleMouseMove);
 
-    const color = { r: 196, g: 240, b: 0 }; // Primary brand color
-    const colorStr = `rgba(${color.r}, ${color.g}, ${color.b}, 1)`;
+    // Primary Neon Greenish Color
+    const baseColor = { r: 196, g: 240, b: 0 }; 
 
     const render = (time) => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      // Update head of the tail
-      points[0].x = mouse.x;
-      points[0].y = mouse.y;
+      // Smooth mouse interpolation
+      pos.x += (mouse.x - pos.x) * 0.12;
+      pos.y += (mouse.y - pos.y) * 0.12;
       
-      // Physics calculation for the smooth tail
-      for (let i = 1; i < numPoints; i++) {
-          const p = points[i];
-          const prev = points[i - 1];
-          
-          const dx = prev.x - p.x;
-          const dy = prev.y - p.y;
-          
-          p.vx += dx * spring;
-          p.vy += dy * spring;
-          
-          p.vx *= friction;
-          p.vy *= friction;
-          
-          p.x += p.vx;
-          p.y += p.vy;
-      }
+      // Decay velocity
+      velocity.x *= 0.95;
+      velocity.y *= 0.95;
+      const speed = Math.sqrt(velocity.x ** 2 + velocity.y ** 2);
+      const spread = Math.min(speed * 0.4, 40) + 10;
       
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       
-      // 1. Draw the elegant, minimal tail with segment fading
-      for (let i = 1; i < numPoints - 1; i++) {
-          const p0 = points[i - 1];
-          const p1 = points[i];
-          const p2 = points[i + 1];
+      // Screen blending to make the overlapping tubes glow brightly like WebGL
+      ctx.globalCompositeOperation = 'screen';
+
+      tubes.forEach((points, tubeIndex) => {
           
-          const progress = i / numPoints;
-          const reverseProgress = 1 - progress;
+          const timeOffset = time * 0.0015 + tubeIndex * (Math.PI * 2 / numTubes);
           
-          ctx.beginPath();
-          const xc1 = (p0.x + p1.x) / 2;
-          const yc1 = (p0.y + p1.y) / 2;
-          const xc2 = (p1.x + p2.x) / 2;
-          const yc2 = (p1.y + p2.y) / 2;
+          // Tube head orbits around the mouse based on speed, creating a 3D ribbon twist
+          points[0].x = pos.x + Math.cos(timeOffset) * spread;
+          points[0].y = pos.y + Math.sin(timeOffset) * spread;
           
-          ctx.moveTo(xc1, yc1);
-          ctx.quadraticCurveTo(p1.x, p1.y, xc2, yc2);
+          // Physics calculation for butter-smooth tail
+          for (let i = 1; i < numPoints; i++) {
+              const p = points[i];
+              const prev = points[i - 1];
+              
+              const dx = prev.x - p.x;
+              const dy = prev.y - p.y;
+              
+              p.vx += dx * spring;
+              p.vy += dy * spring;
+              
+              p.vx *= friction;
+              p.vy *= friction;
+              
+              p.x += p.vx;
+              p.y += p.vy;
+          }
           
-          ctx.lineWidth = 2 * reverseProgress;
-          ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${reverseProgress})`;
-          ctx.stroke();
-      }
-      
-      // 2. Draw the exact mouse dot
-      ctx.beginPath();
-      ctx.arc(mouse.x, mouse.y, 4, 0, Math.PI * 2);
-      ctx.fillStyle = colorStr;
-      ctx.fill();
-      
-      // 3. Draw the premium rotating agency text badge around the mouse
-      // Use points[4] for a tiny bit of smooth spring delay on the text circle
-      const delayedPos = points[4]; 
-      
-      ctx.save();
-      ctx.translate(delayedPos.x, delayedPos.y);
-      
-      const rotation = time * 0.001; // Slow, elegant rotation
-      ctx.rotate(rotation);
-      
-      ctx.font = "600 10.5px 'Inter', sans-serif";
-      ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 0.95)`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      
-      const charCount = text.length;
-      const anglePerChar = (Math.PI * 2) / charCount;
-      
-      for (let i = 0; i < charCount; i++) {
-          ctx.save();
-          // Rotate to the character's position on the circle
-          ctx.rotate(i * anglePerChar);
-          // Move out to the radius
-          ctx.translate(0, -radius);
-          // Draw the character
-          ctx.fillText(text[i], 0, 0);
-          ctx.restore();
-      }
-      
-      ctx.restore();
+          // Render each tube segment with 4 passes to create the illusion of 3D Glass/Neon
+          for (let i = 1; i < numPoints - 1; i++) {
+              const p0 = points[i - 1];
+              const p1 = points[i];
+              const p2 = points[i + 1];
+              
+              const progress = i / numPoints;
+              const reverseProgress = 1 - progress; // 1 at head, 0 at tail
+              
+              const scale = Math.pow(reverseProgress, 1.2);
+              if (scale < 0.02) continue;
+              
+              const xc1 = (p0.x + p1.x) / 2;
+              const yc1 = (p0.y + p1.y) / 2;
+              const xc2 = (p1.x + p2.x) / 2;
+              const yc2 = (p1.y + p2.y) / 2;
+              
+              // Helper to draw a spline segment
+              const drawSpline = (offsetX, offsetY) => {
+                  ctx.beginPath();
+                  ctx.moveTo(xc1 + offsetX, yc1 + offsetY);
+                  ctx.quadraticCurveTo(p1.x + offsetX, p1.y + offsetY, xc2 + offsetX, yc2 + offsetY);
+              };
+
+              // Pass 1: Fat Outer Glow
+              drawSpline(0, 0);
+              ctx.lineWidth = 45 * scale;
+              ctx.strokeStyle = `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${0.03 * scale})`;
+              ctx.stroke();
+              
+              // Pass 2: Main Tube Body
+              drawSpline(0, 0);
+              ctx.lineWidth = 18 * scale;
+              ctx.strokeStyle = `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${0.15 * scale})`;
+              ctx.stroke();
+              
+              // Pass 3: Specular Highlight (Offset to create 3D cylinder illusion)
+              const offset = -3 * scale; 
+              drawSpline(offset, offset);
+              ctx.lineWidth = 4 * scale;
+              ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 * scale})`;
+              ctx.stroke();
+              
+              // Pass 4: Bright Inner Core
+              drawSpline(0, 0);
+              ctx.lineWidth = 2 * scale;
+              ctx.strokeStyle = `rgba(255, 255, 255, ${0.8 * scale})`;
+              ctx.stroke();
+          }
+      });
 
       animationFrameId = requestAnimationFrame(render);
     };
@@ -156,7 +174,9 @@ const MouseTrail = () => {
         width: '100%',
         height: '100%',
         pointerEvents: 'none',
-        zIndex: 1
+        zIndex: 1,
+        filter: 'blur(1px)', // Softens the lines to look like glowing WebGL shaders
+        mixBlendMode: 'screen'
       }}
     />
   );
