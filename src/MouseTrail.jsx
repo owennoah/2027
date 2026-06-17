@@ -44,10 +44,25 @@ const MouseTrail = () => {
       if (bgCanvas.parentElement) {
         const w = bgCanvas.parentElement.clientWidth;
         const h = bgCanvas.parentElement.clientHeight;
-        bgCanvas.width = w;
-        bgCanvas.height = h;
-        gooeyCanvas.width = w;
-        gooeyCanvas.height = h;
+        const dpr = window.devicePixelRatio || 1;
+        
+        bgCanvas.width = w * dpr;
+        bgCanvas.height = h * dpr;
+        gooeyCanvas.width = w * dpr;
+        gooeyCanvas.height = h * dpr;
+        
+        bgCanvas.style.width = `${w}px`;
+        bgCanvas.style.height = `${h}px`;
+        gooeyCanvas.style.width = `${w}px`;
+        gooeyCanvas.style.height = `${h}px`;
+        
+        // Reset scale before applying new scale to avoid compounding
+        bgCtx.setTransform(1, 0, 0, 1, 0, 0);
+        gooeyCtx.setTransform(1, 0, 0, 1, 0, 0);
+        
+        bgCtx.scale(dpr, dpr);
+        gooeyCtx.scale(dpr, dpr);
+        
         initGrid();
       }
     };
@@ -200,8 +215,8 @@ const MouseTrail = () => {
       <svg style={{ position: 'absolute', width: 0, height: 0 }} aria-hidden="true">
         <filter id="extreme-gooey-canvas">
           <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur" />
-          <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 25 -12" result="goo" />
-          <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+          <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9" result="goo" />
+          {/* We intentionally omit feComposite so the sharp original shapes don't poke out of the liquid sides! */}
         </filter>
       </svg>
       
