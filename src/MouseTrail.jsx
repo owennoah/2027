@@ -33,6 +33,8 @@ const MouseTrail = () => {
             originY: j * spacing,
             x: i * spacing,
             y: j * spacing,
+            vx: 0,
+            vy: 0,
           });
         }
       }
@@ -78,42 +80,54 @@ const MouseTrail = () => {
       bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
       gooeyCtx.clearRect(0, 0, gooeyCanvas.width, gooeyCanvas.height);
       
-      delayedMouse.x += (mouse.x - delayedMouse.x) * 0.2;
-      delayedMouse.y += (mouse.y - delayedMouse.y) * 0.2;
+      // Slower interpolation creates more extreme liquid stretching
+      delayedMouse.x += (mouse.x - delayedMouse.x) * 0.15;
+      delayedMouse.y += (mouse.y - delayedMouse.y) * 0.15;
       
       const restingColor = getRestingAlpha();
       
       gooeyCtx.fillStyle = `rgb(${accentColor.r}, ${accentColor.g}, ${accentColor.b})`;
       bgCtx.fillStyle = restingColor;
 
+      // Spring physics variables for bouncy elasticity
+      const spring = 0.08;
+      const friction = 0.75;
+
       dots.forEach(dot => {
         const dx = delayedMouse.x - dot.originX;
         const dy = delayedMouse.y - dot.originY;
         const dist = Math.sqrt(dx * dx + dy * dy);
         
-        const maxDist = 180;
+        const maxDist = 220; // Increased radius for more widespread melting
         let isGooey = false;
         let gooeySize = 0;
         let bgSize = 1.5;
         
+        let targetX = dot.originX;
+        let targetY = dot.originY;
+        
         if (dist < maxDist) {
           const pull = Math.pow((maxDist - dist) / maxDist, 1.5); 
           
-          const targetX = dot.originX + dx * 0.5 * pull;
-          const targetY = dot.originY + dy * 0.5 * pull;
-          
-          dot.x += (targetX - dot.x) * 0.15;
-          dot.y += (targetY - dot.y) * 0.15;
+          // Pull dots heavily towards the cursor to create liquid mass
+          targetX = dot.originX + dx * 0.7 * pull;
+          targetY = dot.originY + dy * 0.7 * pull;
           
           if (pull > 0.05) {
             isGooey = true;
-            gooeySize = pull * 15; 
+            gooeySize = pull * 20; // Larger blobs for smoother melting
           }
-          
-        } else {
-          dot.x += (dot.originX - dot.x) * 0.1;
-          dot.y += (dot.originY - dot.y) * 0.1;
         }
+        
+        // Elastic spring physics for dots snapping back and forth
+        dot.vx += (targetX - dot.x) * spring;
+        dot.vy += (targetY - dot.y) * spring;
+        
+        dot.vx *= friction;
+        dot.vy *= friction;
+        
+        dot.x += dot.vx;
+        dot.y += dot.vy;
         
         // Always draw the crisp background dot so the grid is visible
         bgCtx.beginPath();
@@ -130,15 +144,19 @@ const MouseTrail = () => {
       
       // The massive heavy liquid cursor blob
       gooeyCtx.beginPath();
-      gooeyCtx.arc(delayedMouse.x, delayedMouse.y, 22, 0, Math.PI * 2);
+      gooeyCtx.arc(delayedMouse.x, delayedMouse.y, 24, 0, Math.PI * 2);
       gooeyCtx.fill();
       
-      // Heavy trailing liquid droplets that stretch
+      // Heavy trailing liquid droplets that stretch and morph based on velocity
       const velX = mouse.x - delayedMouse.x;
       const velY = mouse.y - delayedMouse.y;
       
       gooeyCtx.beginPath();
-      gooeyCtx.arc(delayedMouse.x - velX * 0.4, delayedMouse.y - velY * 0.4, 14, 0, Math.PI * 2);
+      gooeyCtx.arc(delayedMouse.x - velX * 0.4, delayedMouse.y - velY * 0.4, 16, 0, Math.PI * 2);
+      gooeyCtx.fill();
+      
+      gooeyCtx.beginPath();
+      gooeyCtx.arc(delayedMouse.x - velX * 0.7, delayedMouse.y - velY * 0.7, 10, 0, Math.PI * 2);
       gooeyCtx.fill();
 
       // Sharp mouse tracker dot on the clean background layer
@@ -178,11 +196,11 @@ const MouseTrail = () => {
         }}
       />
       
-      {/* Custom Liquid Filter */}
+      {/* Extreme Liquid Filter for buttery smooth shape morphing */}
       <svg style={{ position: 'absolute', width: 0, height: 0 }} aria-hidden="true">
-        <filter id="gooey-canvas">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
-          <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -10" result="goo" />
+        <filter id="extreme-gooey-canvas">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur" />
+          <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 25 -12" result="goo" />
           <feComposite in="SourceGraphic" in2="goo" operator="atop" />
         </filter>
       </svg>
@@ -198,7 +216,7 @@ const MouseTrail = () => {
           height: '100%',
           pointerEvents: 'none',
           zIndex: 1, 
-          filter: 'url(#gooey-canvas)' 
+          filter: 'url(#extreme-gooey-canvas)' 
         }}
       />
     </>
