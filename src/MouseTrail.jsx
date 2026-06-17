@@ -9,11 +9,25 @@ const MouseTrail = () => {
     const ctx = canvas.getContext('2d');
     
     let animationFrameId;
-    let points = [];
-    const maxPoints = 60;
-    const numStrands = 5;
+    
+    // Physics Configuration for Buttery Smooth revolt.digital effect
+    const numLines = 6;      // Number of intertwining strands
+    const numPoints = 80;    // Length of the trail (higher = longer tail)
+    const spring = 0.015;    // Lower = smoother, more delayed
+    const friction = 0.93;   // Higher = glides further
     
     let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    let pos = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    let mouseVelocity = { x: 0, y: 0 };
+    
+    const lines = [];
+    for (let i = 0; i < numLines; i++) {
+        const points = [];
+        for (let j = 0; j < numPoints; j++) {
+            points.push({ x: mouse.x, y: mouse.y, vx: 0, vy: 0 });
+        }
+        lines.push(points);
+    }
     
     const resizeCanvas = () => {
       if (canvas.parentElement) {
@@ -25,62 +39,104 @@ const MouseTrail = () => {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
+    let lastMouse = { x: mouse.x, y: mouse.y };
     const handleMouseMove = (e) => {
       const rect = canvas.getBoundingClientRect();
-      // Mouse coordinates relative to the canvas
       mouse.x = e.clientX - rect.left;
       mouse.y = e.clientY - rect.top;
+      
+      mouseVelocity.x = mouse.x - lastMouse.x;
+      mouseVelocity.y = mouse.y - lastMouse.y;
+      lastMouse.x = mouse.x;
+      lastMouse.y = mouse.y;
     };
     
     window.addEventListener('mousemove', handleMouseMove);
 
-    // Accent color: #c4f000 (RGB: 196, 240, 0)
-    const baseColor = { r: 196, g: 240, b: 0 };
+    // Accent color: #c4f000 (Neon Greenish)
+    const color = { r: 196, g: 240, b: 0 };
 
     const render = (time) => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      points.push({ x: mouse.x, y: mouse.y, time: time });
-      if (points.length > maxPoints) {
-        points.shift();
-      }
+      // Smooth mouse interpolation
+      pos.x += (mouse.x - pos.x) * 0.1;
+      pos.y += (mouse.y - pos.y) * 0.1;
+      
+      // Decay velocity
+      mouseVelocity.x *= 0.95;
+      mouseVelocity.y *= 0.95;
+      
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      // Screen blending mode for that glowing light effect
+      ctx.globalCompositeOperation = 'screen';
 
-      if (points.length > 1) {
-        for (let s = 0; s < numStrands; s++) {
-          for (let i = 1; i < points.length; i++) {
-            const p1 = points[i - 1];
-            const p2 = points[i];
-            
-            const progress1 = (i - 1) / points.length;
-            const progress2 = i / points.length;
-            
-            // The further back in history (lower progress), the more spread out the strands
-            const spread1 = 50 * (1 - progress1); 
-            const spread2 = 50 * (1 - progress2); 
-            
-            // Add oscillation based on time and strand index
-            const offset1X = Math.sin(p1.time * 0.002 + s * 1.5) * spread1;
-            const offset1Y = Math.cos(p1.time * 0.002 + s * 1.5) * spread1;
-            
-            const offset2X = Math.sin(p2.time * 0.002 + s * 1.5) * spread2;
-            const offset2Y = Math.cos(p2.time * 0.002 + s * 1.5) * spread2;
-            
-            ctx.beginPath();
-            ctx.moveTo(p1.x + offset1X, p1.y + offset1Y);
-            ctx.lineTo(p2.x + offset2X, p2.y + offset2Y);
-            
-            // Opacity fades out towards the tail
-            const opacity = Math.pow(progress2, 2.5);
-            
-            ctx.strokeStyle = `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${opacity})`;
-            ctx.lineWidth = 3 * progress2 + 0.5;
-            ctx.lineCap = 'round';
-            ctx.shadowColor = `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${opacity})`;
-            ctx.shadowBlur = 15 * progress2;
-            ctx.stroke();
+      const speed = Math.sqrt(mouseVelocity.x ** 2 + mouseVelocity.y ** 2);
+      const spread = Math.min(speed * 0.5, 30); // Spread increases with speed
+
+      lines.forEach((points, lineIndex) => {
+          
+          const timeOffset = time * 0.002 + lineIndex * (Math.PI * 2 / numLines);
+          
+          // Head orbits around the mouse based on speed, giving a 3D ribbon look
+          points[0].x = pos.x + Math.cos(timeOffset) * spread;
+          points[0].y = pos.y + Math.sin(timeOffset) * spread;
+          
+          // Physics calculation
+          for (let i = 1; i < numPoints; i++) {
+              const p = points[i];
+              const prev = points[i - 1];
+              
+              const dx = prev.x - p.x;
+              const dy = prev.y - p.y;
+              
+              p.vx += dx * spring;
+              p.vy += dy * spring;
+              
+              p.vx *= friction;
+              p.vy *= friction;
+              
+              p.x += p.vx;
+              p.y += p.vy;
           }
-        }
-      }
+          
+          // Draw segments with cubic bezier for ultimate smoothness
+          for (let i = 1; i < numPoints - 1; i++) {
+              const p0 = points[i - 1];
+              const p1 = points[i];
+              const p2 = points[i + 1];
+              
+              const progress = i / numPoints;
+              const reverseProgress = 1 - progress;
+              
+              // Thick head, sharp taper
+              const lineWidth = 30 * Math.pow(reverseProgress, 3); 
+              
+              if (lineWidth < 0.1) continue;
+              
+              ctx.beginPath();
+              const xc1 = (p0.x + p1.x) / 2;
+              const yc1 = (p0.y + p1.y) / 2;
+              const xc2 = (p1.x + p2.x) / 2;
+              const yc2 = (p1.y + p2.y) / 2;
+              
+              ctx.moveTo(xc1, yc1);
+              ctx.quadraticCurveTo(p1.x, p1.y, xc2, yc2);
+              
+              const opacity = Math.pow(reverseProgress, 1.5) * 0.4;
+              
+              // Outer glow
+              ctx.lineWidth = lineWidth;
+              ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
+              ctx.stroke();
+              
+              // Inner bright core
+              ctx.lineWidth = lineWidth * 0.2;
+              ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 1.5})`;
+              ctx.stroke();
+          }
+      });
 
       animationFrameId = requestAnimationFrame(render);
     };
@@ -104,7 +160,8 @@ const MouseTrail = () => {
         width: '100%',
         height: '100%',
         pointerEvents: 'none',
-        zIndex: 1 // Put above background but behind content
+        zIndex: 1,
+        filter: 'blur(2px)' // Emulates the soft WebGL shader blur
       }}
     />
   );
